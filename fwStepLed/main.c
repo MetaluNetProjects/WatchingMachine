@@ -60,6 +60,8 @@ volatile long int MotorPos=0;
 volatile long int MotorPosOnDetect = 0;
 long int oldMotorPosOnDetect = 0;
 long int MotorPosConsign=0; 
+long int DetectCount = 0;
+long int oldDetectCount = 0;
 
 #define MotorPosTmpConsign MotorPosTmpConsignU.L0
 volatile int MotorFracPos;	//fractionnal part of position
@@ -175,6 +177,9 @@ void Step_ISR(void)
 	if(INTPIN_IF){
 		INTPIN_IF = 0;
 		MotorPosOnDetect = MotorPos;
+		
+		if(MotorPosConsign<MotorPos) DetectCount--;
+		else DetectCount++;
 	}
 }
 
@@ -223,8 +228,8 @@ void setup(void)
 	pinModeAnalogOut(MBI);
 
 	T2CONbits.TMR2ON = 1;
-	T2CONbits.T2OUTPS3 =		//
-	T2CONbits.T2OUTPS2 =		//	postscaler=16 -> T2 interrupt = 3kHz
+	T2CONbits.T2OUTPS3 = 1;		//
+	T2CONbits.T2OUTPS2 = 		//	postscaler=16 -> T2 interrupt = 3kHz
 	T2CONbits.T2OUTPS1 =		//
 	T2CONbits.T2OUTPS0 = 1;	//
 
@@ -314,14 +319,18 @@ void loop() {
 	{
 		delayStart(mainDelay, 5000); 	// re-init mainDelay
 
-		if(MotorPosOnDetect != oldMotorPosOnDetect) {
-			oldMotorPosOnDetect = MotorPosOnDetect;
+		if(oldDetectCount != DetectCount) {
+			oldDetectCount = DetectCount;
 			putchar('B');
 			putchar(2);
-			putchar(oldMotorPosOnDetect>>24);
-			putchar(oldMotorPosOnDetect>>16);
-			putchar(oldMotorPosOnDetect>>8);
-			putchar(oldMotorPosOnDetect);
+			putchar(MotorPosOnDetect>>24);
+			putchar(MotorPosOnDetect>>16);
+			putchar(MotorPosOnDetect>>8);
+			putchar(MotorPosOnDetect);
+			putchar(oldDetectCount>>24);
+			putchar(oldDetectCount>>16);
+			putchar(oldDetectCount>>8);
+			putchar(oldDetectCount);
 			putchar('\n');
 		}
 			
@@ -392,7 +401,7 @@ void fraiseReceive()
 			}
 			break;
 		PARAM_CHAR(4,MotorMaxSpeed); break;
-		PARAM_LONG(5,MotorPosConsign); break;
+		PARAM_LONG(5,MotorPosConsign); INTPIN_EDGE = MotorPosConsign<MotorPos; break;
 		PARAM_LONG(6,pos); __critical { MotorPosConsign=MotorPos=pos; } ; break;
 		PARAM_INT(10 , i); analogWrite(LEDPWM, i) ; break;
 		//case 255 : EEwriteMain();break;
